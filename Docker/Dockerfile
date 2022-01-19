@@ -80,24 +80,9 @@ RUN apt-get -o Acquire::ForceIPv4=true update && apt-get -yq dist-upgrade \
     python3-setuptools \
     python3-opencv \
     python3-numpy \
-    # python3-empy  \
+    python3-empy  \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
-###################################### ROS #####################################
-
-RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key  -o /usr/share/keyrings/ros-archive-keyring.gpg
-
-RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
-
-RUN RUN apt-get -o Acquire::ForceIPv4=true update && apt-get -o Acquire::ForceIPv4=true install --no-install-recommends -y \
-    ros-$ROS_DISTRO-desktop-full \
-    ros-$ROS_DISTRO-ros-base \
-    python3-colcon-common-extensions \
-    python3-rosdep
-
-RUN rosdep init \
-    && rosdep update
 
 ##################################### PIP ######################################
 
@@ -108,6 +93,7 @@ RUN rosdep init \
 RUN pip3 install --upgrade setuptools pip
 
 RUN pip3 install \
+    gdown \
     absl-py==0.12.0 \
     appdirs==1.4.4 \
     argcomplete==1.12.3 \
@@ -148,7 +134,7 @@ RUN pip3 install \
     distlib==0.3.1 \
     dm-tree==0.1.6 \
     docutils==0.17.1 \
-    empy==3.3.4 \
+    empy \
     fire==0.4.0 \
     flatbuffers==1.12 \
     gast==0.3.3 \
@@ -232,6 +218,21 @@ RUN pip3 install \
     wrapt==1.12.1 \
     zipp==3.4.1
 
+###################################### ROS #####################################
+
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key  -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+RUN apt-get -o Acquire::ForceIPv4=true update && apt-get -o Acquire::ForceIPv4=true install --no-install-recommends -y \
+    ros-$ROS_DISTRO-desktop \
+    ros-$ROS_DISTRO-ros-base \
+    python3-colcon-common-extensions \
+    python3-rosdep
+
+RUN rosdep init \
+    && rosdep update
+
 ##################################### OpenCV ######################################
 
 RUN wget -O opencv.zip https://github.com/opencv/opencv/archive/3.4.4.zip \
@@ -262,14 +263,16 @@ RUN cd opencv/ \
 RUN gdown --id 1PReLiiaN92HJqnrNPtsH2WBDkOz1As0b -O dualenet.onnx \
     && mv dualenet.onnx /usr/local/bin/
 
-COPY ./bin_files/data/ /usr/local/bin/data/ \
-    && ./bin_files/depth*.bin /usr/local/bin/
+COPY ./bin_files/data/ /usr/local/bin/data/
+COPY ./bin_files/depth*.bin /usr/local/bin/
+
+RUN echo "KERNEL==\"video*\", SUBSYSTEMS==\"usb\", ATTRS{idVendor}==\"2560\", ATTR{index}==\"0\", ATTRS{manufacturer}==\"e-con systems\", SYMLINK+=\"pal5\"" 1> /etc/udev/rules.d/pal5.rules
+RUN echo "export LD_LIBRARY_PATH=$"LD_LIBRARY_PATH":/home/argnctu/pal-camera-ros/dev_ws/src/dreamvu_pal_camera/lib" >> ${HOME}/.bashrc
 
 RUN chown -R ${USER}:${USER} ${HOME}/
 RUN chown -R ${USER}:${USER} /usr/local/bin/depth*.bin /usr/local/bin/dualenet.onnx /usr/local/bin/data/*/*.png
 RUN echo "${USER} ALL=(ALL)  ALL" >> /etc/sudoers
-
-RUN echo "export LD_LIBRARY_PATH=$"LD_LIBRARY_PATH":/home/argnctu/pal-camera-ros/dev_ws/src/dreamvu_pal_camera/lib" >> ${HOME}/.bashrc 
+ 
 # RUN echo "source /dreamvu_ws/bin/activate" >> ${HOME}/.bashrc
 
 # Support of nvidia-docker 2.0
