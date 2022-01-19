@@ -1,3 +1,5 @@
 #! /bin/bash
 
-colcon build --cmake-clean-cache --base-paths ./dev_ws
+cd dev_ws/
+colcon build --cmake-clean-cache
+cd ..
