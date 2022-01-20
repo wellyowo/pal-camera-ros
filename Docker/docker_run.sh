@@ -61,6 +61,7 @@ docker run \
     -e ROS_IP=$ROS_IP \
     -v "/home/$USER/pal-camera-ros:/home/argnctu/pal-camera-ros" \
     -v "$XAUTH:$XAUTH" \
+    -v "/dev/:/dev/" \
     -v "/tmp/.X11-unix:/tmp/.X11-unix" \
     -v "/etc/localtime:/etc/localtime:ro" \
     --workdir "/home/argnctu/pal-camera-ros" \
