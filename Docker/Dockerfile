@@ -86,10 +86,6 @@ RUN apt-get -o Acquire::ForceIPv4=true update && apt-get -yq dist-upgrade \
 
 ##################################### PIP ######################################
 
-#Create dream_ws virtual environment
-# RUN python3 -m venv dreamvu_ws
-# RUN . ./dreamvu_ws/bin/activate
-
 RUN pip3 install --upgrade setuptools pip
 
 RUN pip3 install \
@@ -260,20 +256,23 @@ RUN cd opencv/ \
     && pkg-config --modversion opencv
 
 ##################################### setting ###################################################
-RUN gdown --id 1PReLiiaN92HJqnrNPtsH2WBDkOz1As0b -O dualenet.onnx \
-    && mv dualenet.onnx /usr/local/bin/
+RUN gdown --id 1FFtwL4EGfWl5w8nJZ5WZzMoISyg0OHda -O camera_data.zip \
+    && unzip camera_data.zip \
+    && cp camera_data/dualenet.onnx /usr/local/bin/ \
+    && cp camera_data/depth*.bin /usr/local/bin/ \
+    && cp -r camera_data/data/ /usr/local/bin/ \
+    && rm camera_data.zip
 
-COPY ./bin_files/data/ /usr/local/bin/data/
-COPY ./bin_files/depth*.bin /usr/local/bin/
+RUN gdown --id 1s1Ph1oCzJDUFluXePc89aUqLE7ucu2yl -O PAL_lib.zip \
+    && unzip PAL_lib.zip \
+    && rm PAL_lib.zip
 
 RUN echo "KERNEL==\"video*\", SUBSYSTEMS==\"usb\", ATTRS{idVendor}==\"2560\", ATTR{index}==\"0\", ATTRS{manufacturer}==\"e-con systems\", SYMLINK+=\"pal5\"" 1> /etc/udev/rules.d/pal5.rules
-RUN echo "export LD_LIBRARY_PATH=$"LD_LIBRARY_PATH":/home/argnctu/pal-camera-ros/dev_ws/src/dreamvu_pal_camera/lib" >> ${HOME}/.bashrc
+RUN echo "export LD_LIBRARY_PATH=$"LD_LIBRARY_PATH":/PAL_lib" >> ${HOME}/.bashrc
 
 RUN chown -R ${USER}:${USER} ${HOME}/
 RUN chown -R ${USER}:${USER} /usr/local/bin/depth*.bin /usr/local/bin/dualenet.onnx /usr/local/bin/data/*/*.png
 RUN echo "${USER} ALL=(ALL)  ALL" >> /etc/sudoers
- 
-# RUN echo "source /dreamvu_ws/bin/activate" >> ${HOME}/.bashrc
 
 # Support of nvidia-docker 2.0
 ENV NVIDIA_VISIBLE_DEVICES=all
