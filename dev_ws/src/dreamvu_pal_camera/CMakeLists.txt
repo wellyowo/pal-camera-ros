@@ -38,7 +38,7 @@ rosidl_generate_interfaces(
 )
 
 set(PAL_INCLUDE_DIR /home/argnctu/pal-camera-ros/dev_ws/src/dreamvu_pal_camera/include )
-set(PAL_LIBRARY /home/argnctu/pal-camera-ros/dev_ws/src/dreamvu_pal_camera/lib/libPAL.so /home/argnctu/pal-camera-ros/dev_ws/src/dreamvu_pal_camera/lib/libPAL_CAMERA.so )
+set(PAL_LIBRARY /PAL_lib/libPAL.so /PAL_lib/libPAL_CAMERA.so )
 
 include_directories(
   include
