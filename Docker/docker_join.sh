@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-#
-# Typical usage: ./join.bash subt
-#
 
 if [ ! -z "$1" ]; then
     ROS_MASTER_URI=http://$1:11311
@@ -15,7 +12,7 @@ fi
 
 BASH_OPTION=bash
 
-IMG=argnctu/pal_usb:ubuntu20.04
+IMG=argnctu/pal_usb:rpi4-melodic
 
 xhost +
 containerid=$(docker ps -aqf "ancestor=${IMG}") && echo $containerid

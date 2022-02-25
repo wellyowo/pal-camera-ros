@@ -132,7 +132,7 @@ namespace PAL
 	//returns SUCCESS/FAILURE etc.
 	//ARGUMENTS:
 	//threshold	: Confidence threshold of the detections ranging from 0 to 1 
-    	PAL::Acknowledgement InitPersonDetection(float threshold = 0.3);
+    	PAL::Acknowledgement InitPersonDetection(float threshold = 0.5);
 
 	//Grabs the latest person detection data available
 	//returns SUCCESS/FAILURE etc.
@@ -145,6 +145,9 @@ namespace PAL
 	PAL::Acknowledgement GetPeopleDetection(cv::Mat& rgb, cv::Mat& depth,    
 		                            std::vector<PAL::BoundingBox> *BoundingBoxes, 
 		                            timeval *timestamp = 0);
+	
+	//Set appropriate mode for person detection API based on the position of the camera
+	PAL::Acknowledgement SetDetectionMode(PAL::DetectionMode m);
 
 	//Sets height of camera from floor required for floor mapping
 	//ARGUMENTS:

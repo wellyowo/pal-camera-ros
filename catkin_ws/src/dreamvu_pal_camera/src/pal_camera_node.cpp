@@ -1,15 +1,7 @@
-#include <chrono>
-#include <functional>
-#include <memory>
-#include <string>
-
-#include "rclcpp/rclcpp.hpp" 
-#include "rclcpp/publisher.hpp"
-#include "std_msgs/msg/string.hpp"
-#include "std_msgs/msg/int32.hpp"
-#include <image_transport/image_transport.hpp>
-#include <sensor_msgs/fill_image.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <ros/ros.h>
+#include <image_transport/image_transport.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <sstream> 
@@ -35,7 +27,7 @@ Specify the absolute file path from which the settings are to be read.
 If the specified file can't be opened, default properties from the API are used.
 See PAL Documentation for more information.
 */
-# define PROPERTIES_FILE_PATH "../dev_ws/src/dreamvu_pal_camera/src/SavedPalProperties.txt"
+# define PROPERTIES_FILE_PATH "../catkin_ws/src/dreamvu_pal_camera/src/SavedPalProperties.txt"
 
 static int camera_index = -1;
 int width = -1;
@@ -49,7 +41,7 @@ image_transport::Publisher leftpub;
 image_transport::Publisher rightpub;
 
 image_transport::Publisher depthpub;
-// rclcpp::Publisher::SharedPtr pointcloudPub;
+ros::Publisher pointcloudPub;
 
 void publishimage(PAL::Image img, image_transport::Publisher& pub,string encoding)
 {
@@ -62,11 +54,8 @@ void publishimage(PAL::Image img, image_transport::Publisher& pub,string encodin
             type = CV_8UC3; 
                    
         cv::Mat imgmat = cv::Mat(img.rows, img.cols, type, img.Raw.u8_data);
-		auto  header = std_msgs::msg::Header();
-		header.frame_id = "pal";
-        sensor_msgs::msg::Image_<std::allocator<void> >::SharedPtr  imgmsg = cv_bridge::CvImage(header, encoding, imgmat).toImageMsg();
-        // imgmsg.frame_id = "left";
-		pub.publish(imgmsg);
+        sensor_msgs::ImagePtr imgmsg = cv_bridge::CvImage(std_msgs::Header(), encoding, imgmat).toImageMsg();
+        pub.publish(imgmsg);
 }
 
 void OnLeftPanorama(PAL::Image* pLeft)
@@ -114,19 +103,22 @@ void OnDepthPanorama(PAL::Image *img)
 	//if (depthSubnumber > 0)
 	{
 
-		sensor_msgs::msg::Image depthptr;
+		sensor_msgs::ImagePtr depthptr;
+		depthptr.reset(new sensor_msgs::Image);
 
-		depthptr.height = g_imgDepth.rows;
-		depthptr.width = g_imgDepth.cols;
-		depthptr.header.frame_id = "pal";
+		depthptr->height = g_imgDepth.rows;
+		depthptr->width = g_imgDepth.cols;
+
 		int num = 1; // for endianness detection
-		depthptr.is_bigendian = !(*(char*)&num == 1);
-		depthptr.step = depthptr.width * sizeof(float);
-		size_t size = depthptr.step * depthptr.height;
-		depthptr.data.resize(size);
+		depthptr->is_bigendian = !(*(char*)&num == 1);
 
-		depthptr.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
-		memcpy((float*)(&depthptr.data[0]), g_imgDepth.Raw.data, size);
+		depthptr->step = depthptr->width * sizeof(float);
+		size_t size = depthptr->step * depthptr->height;
+		depthptr->data.resize(size);
+
+		depthptr->encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+
+		memcpy((float*)(&depthptr->data[0]), g_imgDepth.Raw.f32_data, size);
 
 		depthpub.publish(depthptr);
 	}
@@ -137,17 +129,17 @@ void OnDepthPanorama(PAL::Image *img)
 int main(int argc, char** argv)
 {
 
-  rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("pal_camera_node");
+  ros::init(argc, argv, "pal_camera_node");
 
-  image_transport::ImageTransport it(node);
+  ros::NodeHandle nh;
+  image_transport::ImageTransport it(nh);
   
   //Creating all the publishers/subscribers
   leftpub = it.advertise("/dreamvu/pal/get/left", 1);
   rightpub = it.advertise("/dreamvu/pal/get/right", 1);
   depthpub = it.advertise("/dreamvu/pal/get/depth", 1);
-  auto pointcloudPub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/dreamvu/pal/get/point_cloud", 1);
-
+  pointcloudPub = nh.advertise<sensor_msgs::PointCloud2>("/dreamvu/pal/get/point_cloud", 1);
+  
 
   //Initialising PAL
   PAL::Acknowledgement ack1 = PAL::Init(width, height,camera_index);
@@ -158,15 +150,16 @@ int main(int argc, char** argv)
 
   PAL::CameraProperties default_properties;
   PAL::GetCameraProperties(&default_properties);
-	RCLCPP_INFO(rclcpp::get_logger("rclcpp"), PROPERTIES_FILE_PATH);
+
+  
   //Loading properties from the file
   PAL::Acknowledgement ack2 = PAL::LoadProperties(PROPERTIES_FILE_PATH,&g_CameraProperties);
   if(ack2 != PAL::SUCCESS)
   {
 
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Not able to load PAL settings from properties file at default location.\n\n" 
-    "Please update the file location by setting the Macro: PROPERTIES_FILE_PATH in pal_camera_node.cpp and build the package again.");
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Setting default properties to PAL.");
+    ROS_WARN("Not able to load PAL settings from properties file at default location.\n\n" 
+    "Please update the file location by setting the Macro: PROPERTIES_FILE_PATH in pal_camera_node.cpp and run catkin_make to build the package again.");
+    ROS_INFO("Setting default properties to PAL.");
     g_CameraProperties = default_properties;
   }
   else
@@ -175,9 +168,9 @@ int main(int argc, char** argv)
     height = g_CameraProperties.resolution.height;  
   }
   
-  rclcpp::Rate loop_rate(30);
+  ros::Rate loop_rate(30);
 
-  g_bRosOK = rclcpp::ok();
+  g_bRosOK = ros::ok();
   while(g_bRosOK)
   {
       
@@ -185,41 +178,42 @@ int main(int argc, char** argv)
     int leftSubnumber = leftpub.getNumSubscribers();
     int rightSubnumber = rightpub.getNumSubscribers();
 	int depthSubnumber = depthpub.getNumSubscribers();
-	int pointcloudSubnumber = pointcloudPub->get_subscription_count();
+	int pointcloudSubnumber = pointcloudPub.getNumSubscribers();
 
 	if (pointcloudSubnumber > 0)
 	{
 		std::vector<PAL::Point> pc;
-		sensor_msgs::msg::PointCloud2 pointcloudMsg;
-		// rclcpp::WallTime t1 = ros::WallTime::now();
+		sensor_msgs::PointCloud2Ptr pointcloudMsg;
+		pointcloudMsg.reset(new sensor_msgs::PointCloud2);
+		ros::WallTime t1 = ros::WallTime::now();
 
 		PAL::Acknowledgement ack = PAL::GetPointCloud(&pc, 0, &g_imgLeft, &g_imgRight, &g_imgDepth, 0);
 
-		// rclcpp::WallTime t2 = ros::WallTime::now();
+		ros::WallTime t2 = ros::WallTime::now();
 
 
 		std::vector<PAL::Point>* point_data = &pc;
 
-		pointcloudMsg.is_bigendian = false;
-		pointcloudMsg.is_dense = false;
+		pointcloudMsg->is_bigendian = false;
+		pointcloudMsg->is_dense = false;
 
-		sensor_msgs::PointCloud2Modifier modifier(pointcloudMsg);
-		pointcloudMsg.point_step = 4 * sizeof(float);
+		sensor_msgs::PointCloud2Modifier modifier(*pointcloudMsg);
+		pointcloudMsg->point_step = 4 * sizeof(float);
 
-		pointcloudMsg.width = point_data->size();
-		pointcloudMsg.height = 1;
-		pointcloudMsg.row_step = sizeof(PAL::Point) * point_data->size();
-		pointcloudMsg.header.frame_id = "pal";
+		pointcloudMsg->width = point_data->size();
+		pointcloudMsg->height = 1;
+		pointcloudMsg->row_step = sizeof(PAL::Point) * point_data->size();
+		pointcloudMsg->header.frame_id = "pal";
 
 		modifier.setPointCloud2Fields(4,
-			"x", 1, sensor_msgs::msg::PointField::FLOAT32,
-			"y", 1, sensor_msgs::msg::PointField::FLOAT32,
-			"z", 1, sensor_msgs::msg::PointField::FLOAT32,
-			"rgb", 1, sensor_msgs::msg::PointField::FLOAT32
+			"x", 1, sensor_msgs::PointField::FLOAT32,
+			"y", 1, sensor_msgs::PointField::FLOAT32,
+			"z", 1, sensor_msgs::PointField::FLOAT32,
+			"rgb", 1, sensor_msgs::PointField::FLOAT32
 		);
 
 
-		PAL::Point* pointcloudPtr = (PAL::Point*)(&pointcloudMsg.data[0]);
+		PAL::Point* pointcloudPtr = (PAL::Point*)(&pointcloudMsg->data[0]);
 
 		unsigned long int i;
 		PAL::Point *pc_points = &pc[0];
@@ -237,12 +231,12 @@ int main(int argc, char** argv)
 
 		}
 
-		// rclcpp::WallTime t3 = ros::WallTime::now();
+		ros::WallTime t3 = ros::WallTime::now();
 
 
-		pointcloudPub->publish(pointcloudMsg);
+		pointcloudPub.publish(pointcloudMsg);
 
-		// rclcpp::WallTime t4 = ros::WallTime::now();
+		ros::WallTime t4 = ros::WallTime::now();
 
 		//ROS_INFO_STREAM("Grab time (ms): " << (t2 - t1).toNSec()*1e-6);
 		//ROS_INFO_STREAM("convert time (ms): " << (t3 - t2).toNSec()*1e-6);
@@ -258,9 +252,9 @@ int main(int argc, char** argv)
 	if (rightSubnumber > 0) OnRightPanorama(&g_imgRight);
 	if (depthSubnumber > 0) OnDepthPanorama(&g_imgDepth);
    
-    rclcpp::spin_some(node);
+    ros::spinOnce();
     loop_rate.sleep();
-	g_bRosOK = rclcpp::ok();
+	g_bRosOK = ros::ok();
   }
 
   return 0;

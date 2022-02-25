@@ -1,2 +1,2 @@
-source /opt/ros/foxy/setup.bash
-source $HOME/pal-camera-ros/dev_ws/install/setup.bash
+source /opt/ros/melodic/setup.bash
+source $HOME/pal-camera-ros/catkin_ws/devel/setup.bash
