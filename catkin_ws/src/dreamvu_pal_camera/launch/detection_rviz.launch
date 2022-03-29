@@ -1,0 +1,6 @@
+<launch>
+        <node name="pal_camera_node" pkg="dreamvu_pal_camera" type="detect" output="screen" />
+
+        <node name="rviz" pkg="rviz" type="rviz" args="-f pal -d /home/argnctu/pal-camera-ros/rviz/detect.rviz" output="screen"/>
+      
+</launch>        

@@ -71,5 +71,5 @@ docker run \
     --privileged \
     --security-opt seccomp=unconfined \
     $DOCKER_OPTS \
-    argnctu/pal_usb:ubuntu20.04 \
+    argnctu/pal_usb:ubuntu18.04 \
     $BASH_OPTION

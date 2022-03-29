@@ -1,6 +1,0 @@
-<launch>
-        <node exec="detect" pkg="dreamvu_pal_camera"  output="screen" />
-        
-        <node exec="rviz2" pkg="rviz2"  output="screen" args="-f pal -d /home/argnctu/pal-camera-ros/rviz/detect.rviz"/>
-      
-</launch>

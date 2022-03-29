@@ -1,14 +1,7 @@
-#include <chrono>
-#include <functional>
-#include <memory>
-#include <string>
-#include "rclcpp/rclcpp.hpp" /*instead of ros.h*/
-#include "rclcpp/publisher.hpp"
-#include "std_msgs/msg/string.hpp"
-#include "std_msgs/msg/int32.hpp"
-#include <image_transport/image_transport.hpp>
-#include <sensor_msgs/fill_image.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <ros/ros.h>
+#include <image_transport/image_transport.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <sstream> 
@@ -22,8 +15,8 @@
 #include <unistd.h>
 
 #include "PAL.h"
-#include "dreamvu_pal_camera/msg/bounding_box.hpp"
-#include "dreamvu_pal_camera/msg/bounding_box_array.hpp"
+#include "dreamvu_pal_camera/BoundingBox.h"
+#include "dreamvu_pal_camera/BoundingBoxArray.h"
 
 using namespace std;
 using namespace cv;
@@ -55,7 +48,7 @@ PAL::CameraProperties g_CameraProperties;
 
 image_transport::Publisher leftpub;
 image_transport::Publisher depthpub;
-// ros::Publisher boxespub;
+ros::Publisher boxespub;
 
 void publishimage(cv::Mat img, image_transport::Publisher& pub,string encoding)
 {
@@ -66,9 +59,8 @@ void publishimage(cv::Mat img, image_transport::Publisher& pub,string encoding)
             type = CV_16SC1;
         else
             type = CV_8UC3; 
-        auto  header = std_msgs::msg::Header();
-		header.frame_id = "pal";       
-        sensor_msgs::msg::Image_<std::allocator<void> >::SharedPtr imgmsg = cv_bridge::CvImage(header, encoding, img).toImageMsg();
+                   
+        sensor_msgs::ImagePtr imgmsg = cv_bridge::CvImage(std_msgs::Header(), encoding, img).toImageMsg();
         pub.publish(imgmsg);
 }
 
@@ -91,34 +83,34 @@ void OnDepthPanorama(cv::Mat *img)
 	//if (depthSubnumber > 0)
 	{
 
-		sensor_msgs::msg::Image depthptr;
-		// depthptr.reset(new sensor_msgs::Image);
+		sensor_msgs::ImagePtr depthptr;
+		depthptr.reset(new sensor_msgs::Image);
 
-		depthptr.height = g_imgDepth.rows;
-		depthptr.width = g_imgDepth.cols;
-		depthptr.header.frame_id = "pal";
+		depthptr->height = g_imgDepth.rows;
+		depthptr->width = g_imgDepth.cols;
+
 		int num = 1; // for endianness detection
-		depthptr.is_bigendian = !(*(char*)&num == 1);
+		depthptr->is_bigendian = !(*(char*)&num == 1);
 
-		depthptr.step = depthptr.width * sizeof(float);
-		size_t size = depthptr.step * depthptr.height;
-		depthptr.data.resize(size);
+		depthptr->step = depthptr->width * sizeof(float);
+		size_t size = depthptr->step * depthptr->height;
+		depthptr->data.resize(size);
 
-		depthptr.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+		depthptr->encoding = sensor_msgs::image_encodings::TYPE_32FC1;
 
-		memcpy((float*)(&depthptr.data[0]), g_imgDepth.data, size);
+		memcpy((float*)(&depthptr->data[0]), g_imgDepth.data, size);
 
 		depthpub.publish(depthptr);
 	}
 }
 
 
-void OnPersonDetection(std::vector<PAL::BoundingBox> Boxes, std::shared_ptr<rclcpp::Publisher<dreamvu_pal_camera::msg::BoundingBoxArray_<std::allocator<void> >, std::allocator<void> > > boxespub)
+void OnPersonDetection(std::vector<PAL::BoundingBox> Boxes)
 {
 
 
-	dreamvu_pal_camera::msg::BoundingBox box;
-	dreamvu_pal_camera::msg::BoundingBoxArray msg;
+	dreamvu_pal_camera::BoundingBox box;
+	dreamvu_pal_camera::BoundingBoxArray msg;
 
 	for(int i=0; i<Boxes.size();i++)
 	{
@@ -129,7 +121,7 @@ void OnPersonDetection(std::vector<PAL::BoundingBox> Boxes, std::shared_ptr<rclc
 		msg.boxes.push_back(box);
 	}
 
-	boxespub->publish(msg);
+	boxespub.publish(msg);
 
 
 }
@@ -137,18 +129,15 @@ void OnPersonDetection(std::vector<PAL::BoundingBox> Boxes, std::shared_ptr<rclc
 int main(int argc, char** argv)
 {
 
-//   ros::init(argc, argv, "person_detection_node");
-  rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("person_detection_node");
-//   ros::NodeHandle nh;
-//   image_transport::ImageTransport it(nh);
-  image_transport::ImageTransport it(node);
+  ros::init(argc, argv, "person_detection_node");
 
+  ros::NodeHandle nh;
+  image_transport::ImageTransport it(nh);
+  
   //Creating all the publishers/subscribers
   leftpub = it.advertise("/dreamvu/pal/persons/get/left", 1);
   depthpub = it.advertise("/dreamvu/pal/persons/get/depth", 1);
-//   boxespub = nh.advertise<dreamvu_pal_camera::BoundingBoxArray>("/dreamvu/pal/persons/get/detection_boxes", 1);
-  auto boxespub = node->create_publisher<dreamvu_pal_camera::msg::BoundingBoxArray>("/dreamvu/pal/persons/get/detection_boxes", 1);
+  boxespub = nh.advertise<dreamvu_pal_camera::BoundingBoxArray>("/dreamvu/pal/persons/get/detection_boxes", 1);
   
   //PAL::Internal::EnableDepth(false);
   
@@ -159,7 +148,7 @@ int main(int argc, char** argv)
       return -1;
   }
  
-  float threshold = 0.5f;
+  float threshold = 0.3f;
 
   PAL::Acknowledgement ack2 = PAL::InitPersonDetection(threshold);
   if(ack2 != PAL::SUCCESS)
@@ -175,9 +164,9 @@ int main(int argc, char** argv)
   if(ack2 != PAL::SUCCESS)
   {
 
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Not able to load PAL settings from properties file at default location.\n\n" 
+    ROS_WARN("Not able to load PAL settings from properties file at default location.\n\n" 
     "Please update the file location by setting the Macro: PROPERTIES_FILE_PATH in pal_camera_node.cpp and run catkin_make to build the package again.");
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Setting default properties to PAL.");
+    ROS_INFO("Setting default properties to PAL.");
     g_CameraProperties = default_properties;
   }
   else
@@ -186,9 +175,9 @@ int main(int argc, char** argv)
     height = g_CameraProperties.resolution.height;  
   }
   
-  rclcpp::Rate loop_rate(30);
+  ros::Rate loop_rate(30);
 
-  g_bRosOK = rclcpp::ok();
+  g_bRosOK = ros::ok();
 
   while(g_bRosOK)
   {
@@ -196,7 +185,7 @@ int main(int argc, char** argv)
 	//Getting no of subscribers for each publisher
 	int leftSubnumber = leftpub.getNumSubscribers();
 	int depthSubnumber = depthpub.getNumSubscribers();
-	int boxesSubnumber = boxespub->get_subscription_count();
+	int boxesSubnumber = boxespub.getNumSubscribers();
 
 	int totalSubnumber = leftSubnumber+depthSubnumber+boxesSubnumber;
 
@@ -210,14 +199,14 @@ int main(int argc, char** argv)
 		cv::rectangle(g_imgLeft,cv::Point(Boxes[i].x1, Boxes[i].y1), cv::Point(Boxes[i].x2, Boxes[i].y2), cv::Scalar(0,255,0), 5);
 	}
 
-	if (boxesSubnumber > 0) OnPersonDetection(Boxes, boxespub);
+	if (boxesSubnumber > 0) OnPersonDetection(Boxes);
 	if (leftSubnumber > 0) OnLeftPanorama(&g_imgLeft);
 	if (depthSubnumber > 0) OnDepthPanorama(&g_imgDepth);
 
 	Boxes.clear();
-	rclcpp::spin_some(node);
+	ros::spinOnce();
 	loop_rate.sleep();
-	g_bRosOK = rclcpp::ok();
+	g_bRosOK = ros::ok();
   }
 
   return 0;

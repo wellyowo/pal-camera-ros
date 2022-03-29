@@ -15,7 +15,7 @@ fi
 
 BASH_OPTION=bash
 
-IMG=argnctu/pal_usb:ubuntu20.04
+IMG=argnctu/pal_usb:ubuntu18.04
 
 xhost +
 containerid=$(docker ps -aqf "ancestor=${IMG}") && echo $containerid
