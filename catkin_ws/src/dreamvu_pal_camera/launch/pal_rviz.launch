@@ -1,8 +1,12 @@
 <launch>
+        <arg name="use_rviz" default="true"/>
+
         <node name="pal_camera_node" pkg="dreamvu_pal_camera" type="capture" output="screen" />
 
         <node name="pub_camera_info" pkg="dreamvu_pal_camera" type="pub_camera_info.py" output="screen" />
         
-        <node name="rviz" pkg="rviz" type="rviz" args="-f pal -d /home/argnctu/pal-camera-ros/rviz/pal.rviz" output="screen"/>
+        <group if="$(arg use_rviz)">
+                <node name="rviz" pkg="rviz" type="rviz" args="-f pal -d /home/argnctu/pal-camera-ros/rviz/pal.rviz" output="screen"/>
+        </group>
       
 </launch>
