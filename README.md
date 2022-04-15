@@ -45,5 +45,5 @@ Docker $ source setup.sh
 
 ### Launch the PAL camera node
 ```
-Docker $ roslaunch dreamvu_pal_camera pal_rviz.launch
+Docker $ roslaunch dreamvu_pal_camera pal_rviz.launch use_rviz:=true
 ```
