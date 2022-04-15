@@ -1,0 +1,3 @@
+[submodule "catkin_ws/src/dreamvu_ros_test"]
+	path = catkin_ws/src/dreamvu_ros_test
+	url = git@github.com:ARG-NCTU/dreamvu_ros_test.git
