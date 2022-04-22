@@ -4,6 +4,10 @@ This unoffical repo provide a docker container to run [DreamVu PAL_USB camera](h
 
 ## How to run
 
+### Before you start
+give your usb video highest permission
+$ sudo chmod 777 /dev/video*
+
 ### Clone the repo
 We use submodule with ssh-key in this repo, so please clone this repo with the command list below.
 ```
